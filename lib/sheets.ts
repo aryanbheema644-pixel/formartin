@@ -1,12 +1,29 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { google, sheets_v4 } from "googleapis";
 
 let cached: sheets_v4.Sheets | null = null;
 
-function loadCredentials() {
+function loadCredentials(): { client_email: string; private_key: string } {
+  // Prefer env vars (works on Vercel / any host).
+  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  const rawKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+  if (email && rawKey) {
+    // Vercel stores multi-line env vars with the `\n` escape literal. Normalize back to real newlines.
+    const private_key = rawKey.includes("\\n") ? rawKey.replace(/\\n/g, "\n") : rawKey;
+    return { client_email: email, private_key };
+  }
+
+  // Fall back to on-disk key for local dev.
   const path = join(process.cwd(), ".secrets", "service-account.json");
-  return JSON.parse(readFileSync(path, "utf-8"));
+  if (existsSync(path)) {
+    const parsed = JSON.parse(readFileSync(path, "utf-8"));
+    return { client_email: parsed.client_email, private_key: parsed.private_key };
+  }
+
+  throw new Error(
+    "Service account credentials missing: set GOOGLE_SERVICE_ACCOUNT_EMAIL + GOOGLE_SERVICE_ACCOUNT_KEY env vars, or place .secrets/service-account.json in the project root.",
+  );
 }
 
 export function sheetsClient(): sheets_v4.Sheets {
