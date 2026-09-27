@@ -6,11 +6,12 @@ let cached: sheets_v4.Sheets | null = null;
 
 function loadCredentials(): { client_email: string; private_key: string } {
   // Prefer env vars (works on Vercel / any host).
-  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim();
   const rawKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
   if (email && rawKey) {
-    // Vercel stores multi-line env vars with the `\n` escape literal. Normalize back to real newlines.
-    const private_key = rawKey.includes("\\n") ? rawKey.replace(/\\n/g, "\n") : rawKey;
+    // Vercel stores multi-line env vars with the `\n` escape literal. Normalize back to real newlines,
+    // and trim any accidental surrounding whitespace that would break the JWT parser.
+    const private_key = (rawKey.includes("\\n") ? rawKey.replace(/\\n/g, "\n") : rawKey).trim();
     return { client_email: email, private_key };
   }
 
